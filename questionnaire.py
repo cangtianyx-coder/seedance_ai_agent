@@ -206,7 +206,7 @@ class Questionnaire:
                 key="total_duration",
                 question="⏱️ 视频总时长",
                 help_text="你希望视频总时长是多少秒？",
-                default="30"
+                default="15"
             ),
             Question(
                 key="rhythm",

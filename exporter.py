@@ -82,14 +82,33 @@ def export_to_seedance_json(requirements: Any, output_path: str = None) -> Dict[
 
     # 如果指定了输出路径，保存到文件
     if output_path:
-        # 确保输出目录存在
-        output_dir = os.path.dirname(output_path)
-        if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
+        max_retries = 3
+        retry_count = 0
+        success = False
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(api_format, f, ensure_ascii=False, indent=2)
-        print(f"✅ 已导出 Seedance 2.0 格式到: {output_path}")
+        while retry_count < max_retries and not success:
+            try:
+                # 确保输出目录存在
+                output_dir = os.path.dirname(output_path)
+                if output_dir:
+                    os.makedirs(output_dir, exist_ok=True)
+
+                with open(output_path, "w", encoding="utf-8") as f:
+                    json.dump(api_format, f, ensure_ascii=False, indent=2)
+                success = True
+                print(f"✅ 已导出 Seedance 2.0 格式到: {output_path}")
+            except Exception as e:
+                retry_count += 1
+                if retry_count < max_retries:
+                    print(f"⚠️ 导出失败，正在重试 ({retry_count}/{max_retries})...")
+                    # 让用户重新输入路径
+                    new_path = input(f"请输入新的文件路径（原路径: {output_path}）: ").strip()
+                    if new_path:
+                        output_path = new_path
+                else:
+                    print(f"❌ 导出失败: {str(e)}")
+                    # 抛出异常让上层处理
+                    raise
 
     return api_format
 

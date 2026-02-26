@@ -1,52 +1,89 @@
 # -*- coding: utf-8 -*-
 """
-增强版交互式问答 - 支持 AI 辅助
+增强版交互式问答 - 支持 AI 辅助、回退功能、输入校验
 """
 
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Callable
 from questionnaire import Question, VideoRequirements, Scene
 from ai_extension import AIExtension, demo_ai_suggestions
 
 
+class QuestionnaireState:
+    """问卷状态管理"""
+
+    def __init__(self):
+        self.step_history: List[Dict[str, Any]] = []
+        self.current_section = ""
+        self.answers: Dict[str, Any] = {}
+
+    def save_step(self, section: str, question: str, answer: Any):
+        """保存步骤"""
+        self.step_history.append({
+            "section": section,
+            "question": question,
+            "answer": answer
+        })
+        self.current_section = section
+
+    def can_go_back(self) -> bool:
+        """是否可以回退"""
+        return len(self.step_history) > 1
+
+    def go_back(self) -> Optional[Dict[str, Any]]:
+        """回退到上一步"""
+        if self.can_go_back():
+            self.step_history.pop()
+            if self.step_history:
+                return self.step_history[-1]
+        return None
+
+
 def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirements:
-    """增强版问卷系统，支持 AI 辅助"""
+    """增强版问卷系统，支持 AI 辅助、回退功能、输入校验"""
 
     # 基础信息收集
     requirements = VideoRequirements()
+    state = QuestionnaireState()
 
     print("\n" + "="*60)
     print("🎬 Seedance 2.0 视频生成助手")
     print("="*60)
     print("\n让我们开始创建你的视频！")
     print("\n💡 提示: 回答问题时，可以输入 'ai' 获取 AI 建议")
+    print("💡 输入 'b' 返回上一题")
     print("="*60)
 
     # 第一部分：主题与故事
     print("\n📝 第一部分：主题与故事")
     print("-"*40)
+    state.current_section = "主题与故事"
 
     requirements.theme = ask_with_ai(
         "📝 视频主题/标题",
         "你希望制作一个关于什么主题的视频？例如：城市夜景、自然风光、产品展示等",
-        ai
+        ai,
+        state=state
     )
 
     requirements.story = ask_with_ai(
         "📖 故事描述",
         "描述你想讲述的故事或展示的内容，越详细越好",
-        ai
+        ai,
+        state=state
     )
 
-    # 第二部分：整体风格
+    # 第二部分：整体风格（支持多选）
     print("\n🎨 第二部分：整体风格")
     print("-"*40)
+    state.current_section = "整体风格"
 
-    # 整体格调
+    # 整体格调 - 支持多选
     print("\n💡 提示: 不知道如何选择时，输入 'ai' 获取专业建议")
-    requirements.overall_style = ask_with_options_and_ai(
+    print("💡 支持多选，用逗号分隔（如：1,3,5）或输入范围（如：1-3）")
+    requirements.overall_style = ask_with_multiple_options(
         "🎨 整体格调",
-        "你希望视频呈现什么样的风格？",
+        "你希望视频呈现什么样的风格？（可多选）",
         [
             ("电影感", "电影级的画面质感和叙事风格"),
             ("纪录片风格", "真实、客观的记录形式"),
@@ -58,7 +95,8 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
             ("自然清新", "清爽、自然的视觉效果")
         ],
         ai,
-        requirements.theme
+        requirements.theme,
+        state=state
     )
 
     requirements.overall_lighting = ask_with_options_and_ai(
@@ -75,7 +113,8 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
             ("戏剧性光影", "强烈的明暗对比")
         ],
         ai,
-        requirements.theme
+        requirements.theme,
+        state=state
     )
 
     requirements.color_tone = ask_with_options_and_ai(
@@ -92,12 +131,14 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
             ("复古色调", "怀旧的色彩风格")
         ],
         ai,
-        requirements.theme
+        requirements.theme,
+        state=state
     )
 
     # 第三部分：镜头设置
     print("\n📷 第三部分：镜头设置")
     print("-"*40)
+    state.current_section = "镜头设置"
 
     requirements.lens_selection = ask_with_options_and_ai(
         "📷 镜头选型",
@@ -113,7 +154,8 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
             ("航拍镜头", "俯瞰视角")
         ],
         ai,
-        requirements.theme
+        requirements.theme,
+        state=state
     )
 
     requirements.aspect_ratio = ask_with_options_and_ai(
@@ -128,17 +170,22 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
         ],
         ai,
         requirements.theme,
+        state=state,
         default="16:9"
     )
 
     # 第四部分：时间节奏
     print("\n⏱️ 第四部分：时间节奏")
     print("-"*40)
+    state.current_section = "时间节奏"
 
     requirements.total_duration = ask_numeric(
         "⏱️ 视频总时长（秒）",
         "你希望视频总时长是多少秒？",
-        default=30
+        default=15,
+        min_val=1,
+        max_val=300,
+        state=state
     )
 
     requirements.rhythm = ask_with_options_and_ai(
@@ -153,44 +200,77 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
             ("快慢交替", "富有变化的节奏")
         ],
         ai,
-        requirements.theme
+        requirements.theme,
+        state=state
     )
 
     # 第五部分：分镜头
     print("\n📹 第五部分：分镜头设置")
     print("-"*40)
+    state.current_section = "分镜头设置"
 
     num_scenes = ask_numeric(
         "📹 分镜头数量",
         f"根据总时长 {requirements.total_duration} 秒，建议分为 {max(1, int(requirements.total_duration/5))} 个分镜头\n请输入分镜头数量 (1-9)",
         min_val=1,
         max_val=9,
-        default=max(1, int(requirements.total_duration/5))
+        default=max(1, int(requirements.total_duration/5)),
+        state=state
     )
 
     # 确保转换为整数
     num_scenes = int(num_scenes)
 
+    # 计算已使用的时间
+    used_duration = 0
+
     for i in range(num_scenes):
+        # 计算剩余时间
+        remaining_time = requirements.total_duration - used_duration
+
         print(f"\n{'='*40}")
         print(f"📹 分镜头 {i+1}/{num_scenes}")
+        if remaining_time > 0:
+            print(f"⏱️ 剩余可用时间: {remaining_time} 秒")
         print("="*40)
+
+        # 每次循环创建新的state用于这个分镜头
+        scene_state = QuestionnaireState()
+        scene_state.current_section = f"分镜头{i+1}"
 
         scene = Scene(
             index=i+1,
-            duration=ask_numeric(
-                f"  时长",
-                f"  第 {i+1} 个分镜头持续多少秒？",
-                default=requirements.total_duration / num_scenes
-            ),
+            duration=0,
             camera_angle="",
             description="",
             transition_to_next="直接切换"
         )
 
+        # 1. 先问时长
+        scene.duration = ask_numeric(
+            f"  时长",
+            f"  第 {i+1} 个分镜头持续多少秒？（剩余 {remaining_time} 秒）",
+            min_val=0.5,
+            max_val=remaining_time if remaining_time > 0 else requirements.total_duration,
+            default=min(remaining_time / (num_scenes - i), 5) if i < num_scenes - 1 else remaining_time,
+            state=scene_state,
+            show_remaining=remaining_time
+        )
+        used_duration += scene.duration
+
+        # 2. 先问场景描述（主要内容）
+        scene.description = ask_with_ai(
+            f"  场景描述",
+            f"  详细描述第 {i+1} 个分镜头要展示什么内容",
+            ai,
+            context=requirements.overall_style,
+            state=scene_state
+        )
+
+        # 3. 再问镜头机位（正面、侧面等）
         scene.camera_angle = ask_with_options_and_ai(
             f"  镜头机位",
-            f"  使用什么角度的镜头？",
+            f"  使用什么角度的镜头拍摄这个场景？",
             [
                 ("正面", "正面面对主体"),
                 ("侧面", "90度侧拍"),
@@ -202,16 +282,11 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
                 ("旋转", "环绕主体旋转")
             ],
             ai,
-            requirements.theme
+            requirements.theme,
+            scene_state
         )
 
-        scene.description = ask_with_ai(
-            f"  场景描述",
-            f"  详细描述第 {i+1} 个分镜头要展示什么内容",
-            ai,
-            requirements.overall_style
-        )
-
+        # 4. 过渡效果（最后一个分镜头不需要）
         if i < num_scenes - 1:
             scene.transition_to_next = ask_with_options_and_ai(
                 f"  过渡效果",
@@ -227,7 +302,8 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
                     ("匹配剪辑", "基于相似性过渡")
                 ],
                 ai,
-                requirements.theme
+                requirements.theme,
+                scene_state
             )
 
         requirements.scenes.append(scene)
@@ -235,6 +311,7 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
     # 第六部分：素材
     print("\n🖼️ 第六部分：参考素材（可选）")
     print("-"*40)
+    state.current_section = "参考素材"
 
     print("\n参考图片路径 (每行一个路径，直接回车结束):")
     try:
@@ -271,71 +348,251 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
 
 def ask_with_ai(question: str, help_text: str,
                 ai: Optional[AIExtension] = None,
-                context: str = "") -> str:
+                context: str = "",
+                state: Optional[QuestionnaireState] = None) -> str:
     """带 AI 辅助的问题"""
-    print(f"\n{question}")
-    print(f"💡 {help_text}")
-    print("💡 输入 'ai' 获取 AI 建议")
-    print("> ", end="")
-
-    answer = input().strip()
-
-    # 如果用户输入 ai
-    if answer.lower() == "ai":
-        return get_ai_suggestion(question, help_text, ai, context)
-
-    while not answer:
-        print("⚠️ 请输入内容，或输入 'ai' 寻求 AI 帮助")
+    while True:
+        print(f"\n{question}")
+        print(f"💡 {help_text}")
+        print("💡 输入 'ai' 获取 AI 建议，输入 'b' 返回上一题")
         print("> ", end="")
+
         answer = input().strip()
+
+        # 处理返回
+        if answer.lower() == "b":
+            if state and state.can_go_back():
+                prev = state.go_back()
+                if prev:
+                    print(f"\n↩️ 已返回上一题: {prev['question']}")
+                    print(f"上次的答案: {prev['answer']}")
+                    # 这里可以实现重新输入或者直接使用上次的答案
+                    continue
+            else:
+                print("⚠️ 无法返回，已经是第一步")
+                continue
+
+        # 如果用户输入 ai
         if answer.lower() == "ai":
             return get_ai_suggestion(question, help_text, ai, context)
 
-    return answer
+        while not answer:
+            print("⚠️ 请输入内容，或输入 'ai' 寻求 AI 帮助，输入 'b' 返回")
+            print("> ", end="")
+            answer = input().strip()
+            if answer.lower() == "b":
+                break
+            if answer.lower() == "ai":
+                return get_ai_suggestion(question, help_text, ai, context)
+
+        if answer.lower() == "b":
+            continue
+
+        # 保存步骤
+        if state:
+            state.save_step(state.current_section, question, answer)
+
+        return answer
 
 
 def ask_with_options_and_ai(question: str, help_text: str,
                           options: List[tuple],
                           ai: Optional[AIExtension] = None,
                           context: str = "",
+                          state: Optional[QuestionnaireState] = None,
                           default: str = "") -> str:
-    """带选项和 AI 辅助的问题"""
-    print(f"\n{question}")
-    print(f"💡 {help_text}")
+    """带选项和 AI 辅助的问题，支持输入校验"""
+    while True:
+        print(f"\n{question}")
+        print(f"💡 {help_text}")
 
-    # 显示选项
-    print("\n可选值:")
-    for i, (key, desc) in enumerate(options, 1):
-        print(f"  {i}. {key} - {desc}")
+        # 显示选项
+        print("\n可选值:")
+        for i, (key, desc) in enumerate(options, 1):
+            print(f"  {i}. {key} - {desc}")
 
-    print("💡 输入数字选择，或输入 'ai' 获取 AI 建议")
-    if default:
-        print(f"💡 直接回车使用默认值: {default}")
-    print("> ", end="")
+        print("💡 输入数字选择，或输入 'ai' 获取 AI 建议")
+        print("💡 输入 'b' 返回上一题")
+        if default:
+            print(f"💡 直接回车使用默认值: {default}")
+        print("> ", end="")
 
-    answer = input().strip()
+        answer = input().strip()
 
-    # AI 建议
-    if answer.lower() == "ai":
-        return get_ai_suggestion_with_options(question, options, ai, context)
+        # 处理返回
+        if answer.lower() == "b":
+            if state and state.can_go_back():
+                prev = state.go_back()
+                if prev:
+                    print(f"\n↩️ 已返回上一题")
+                    continue
+            else:
+                print("⚠️ 无法返回，已经是第一步")
+                continue
 
-    # 数字选择
-    if answer.isdigit():
-        idx = int(answer) - 1
-        if 0 <= idx < len(options):
-            return options[idx][0]
+        # AI 建议
+        if answer.lower() == "ai":
+            return get_ai_suggestion_with_options(question, options, ai, context)
 
-    # 默认值
-    if not answer and default:
-        return default
+        # 数字选择
+        if answer.isdigit():
+            idx = int(answer) - 1
+            if 0 <= idx < len(options):
+                if state:
+                    state.save_step(state.current_section, question, options[idx][0])
+                return options[idx][0]
 
-    # 返回用户输入
-    if answer:
-        return answer
+        # 默认值
+        if not answer and default:
+            if state:
+                state.save_step(state.current_section, question, default)
+            return default
 
-    # 重试
-    print("⚠️ 请输入有效选项")
-    return ask_with_options_and_ai(question, help_text, options, ai, context, default)
+        # 输入校验：检查是否输入了选项文字
+        if answer:
+            # 检查是否完全匹配某个选项
+            matched = False
+            for key, desc in options:
+                if answer == key or answer.lower() == key.lower():
+                    if state:
+                        state.save_step(state.current_section, question, key)
+                    return key
+
+            # 如果不是有效选项，提示错误
+            print("⚠️ 请输入有效的选项编号（1-{0}），或输入选项名称".format(len(options)))
+            continue
+
+        # 空输入且无默认值时重新循环
+        print("⚠️ 请输入有效选项")
+
+
+def ask_with_multiple_options(question: str, help_text: str,
+                              options: List[tuple],
+                              ai: Optional[AIExtension] = None,
+                              context: str = "",
+                              state: Optional[QuestionnaireState] = None,
+                              default: str = "") -> str:
+    """带选项的问题，支持多选"""
+    while True:
+        print(f"\n{question}")
+        print(f"💡 {help_text}")
+
+        # 显示选项
+        print("\n可选值:")
+        for i, (key, desc) in enumerate(options, 1):
+            print(f"  {i}. {key} - {desc}")
+
+        print("💡 输入数字多选（如：1,3,5 或 1-3），或输入 'ai' 获取 AI 建议")
+        print("💡 输入 'b' 返回上一题")
+        if default:
+            print(f"💡 直接回车使用默认值: {default}")
+        print("> ", end="")
+
+        answer = input().strip()
+
+        # 处理返回
+        if answer.lower() == "b":
+            if state and state.can_go_back():
+                prev = state.go_back()
+                if prev:
+                    print(f"\n↩️ 已返回上一题")
+                    continue
+            else:
+                print("⚠️ 无法返回，已经是第一步")
+                continue
+
+        # AI 建议
+        if answer.lower() == "ai":
+            return get_ai_suggestion_with_options(question, options, ai, context)
+
+        # 解析多选
+        selected = []
+        if answer:
+            # 处理逗号分隔或范围
+            parts = answer.replace(",", " ").split()
+            for part in parts:
+                if "-" in part:
+                    try:
+                        start, end = map(int, part.split("-"))
+                        selected.extend(range(start, end + 1))
+                    except ValueError:
+                        print("⚠️ 范围格式错误，请使用如 1-3 的格式")
+                        break
+                else:
+                    try:
+                        selected.append(int(part))
+                    except ValueError:
+                        print("⚠️ 输入格式错误，请使用如 1,3,5 或 1-3 的格式")
+                        break
+            else:
+                # 验证所有选择是否有效
+                valid = all(1 <= s <= len(options) for s in selected)
+                if valid:
+                    result = ", ".join(options[s-1][0] for s in selected)
+                    if state:
+                        state.save_step(state.current_section, question, result)
+                    return result
+                else:
+                    print("⚠️ 请输入有效的选项编号（1-{0}）".format(len(options)))
+                    continue
+        else:
+            # 默认值
+            if default:
+                if state:
+                    state.save_step(state.current_section, question, default)
+                return default
+            print("⚠️ 请输入选项")
+
+
+def ask_numeric(question: str, help_text: str,
+               min_val: float = 1, max_val: float = 999,
+               default: float = 0,
+               state: Optional[QuestionnaireState] = None,
+               show_remaining: float = None) -> float:
+    """询问数值，支持返回和输入校验"""
+    while True:
+        print(f"\n{question}")
+        if show_remaining is not None:
+            print(f"💡 剩余可用时间: {show_remaining} 秒")
+        print(f"💡 {help_text}")
+        if default:
+            print(f"💡 直接回车使用默认值: {default}")
+        print("💡 输入 'b' 返回上一题")
+        print(f"💡 请输入 {min_val}-{max_val} 之间的数值")
+        print("> ", end="")
+
+        answer = input().strip()
+
+        # 处理返回
+        if answer.lower() == "b":
+            if state and state.can_go_back():
+                prev = state.go_back()
+                if prev:
+                    print(f"\n↩️ 已返回上一题")
+                    continue
+            else:
+                print("⚠️ 无法返回，已经是第一步")
+                continue
+
+        if not answer:
+            if default:
+                if state:
+                    state.save_step(state.current_section, question, default)
+                return default
+            print("⚠️ 请输入数值")
+            continue
+
+        # 输入校验
+        try:
+            value = float(answer)
+            if min_val <= value <= max_val:
+                if state:
+                    state.save_step(state.current_section, question, value)
+                return value
+            else:
+                print(f"⚠️ 请输入 {min_val}-{max_val} 之间的数值")
+        except ValueError:
+            print("⚠️ 请输入有效数字")
 
 
 def get_ai_suggestion(question: str, help_text: str,
@@ -425,33 +682,6 @@ def get_builtin_suggestion(question: str) -> str:
     print("\n⚠️ 请根据你的想法输入内容")
     print("> ", end="")
     return input().strip()
-
-
-def ask_numeric(question: str, help_text: str,
-               min_val: float = 1, max_val: float = 999,
-               default: float = 0) -> float:
-    """询问数值"""
-    print(f"\n{question}")
-    print(f"💡 {help_text}")
-    if default:
-        print(f"💡 直接回车使用默认值: {default}")
-    print("> ", end="")
-
-    answer = input().strip()
-
-    if not answer:
-        return default
-
-    try:
-        value = float(answer)
-        if min_val <= value <= max_val:
-            return value
-        else:
-            print(f"⚠️ 请输入 {min_val}-{max_val} 之间的数值")
-            return ask_numeric(question, help_text, min_val, max_val, default)
-    except ValueError:
-        print("⚠️ 请输入有效数字")
-        return ask_numeric(question, help_text, min_val, max_val, default)
 
 
 if __name__ == "__main__":
