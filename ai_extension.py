@@ -147,6 +147,50 @@ JSON 格式：
             print(f"⚠️ AI 请求失败: {e}")
             return None
 
+    def suggest_smart_lens(self, scene_description: str, theme: str, style: str, mood: str = "") -> Optional[AIExtensionResult]:
+        """智能镜头推荐 - 根据场景描述推荐最佳镜头"""
+        if not self.is_available():
+            return None
+
+        system_prompt = """你是一位专业的影视导演和摄影指导。
+根据用户描述的场景内容，推荐最适合的镜头机位和拍摄方式。
+
+请根据以下信息给出专业建议：
+1. 推荐的镜头机位（正面、侧面、斜侧、低角度、高角度、俯冲、升格、旋转等）
+2. 推荐的原因
+3. 适合的过渡方式
+
+请用通俗易懂的语言解释，帮助不懂摄影的用户理解。"""
+
+        user_prompt = f"""视频主题：{theme}
+整体风格：{style}
+情绪氛围：{mood}
+场景描述：{scene_description}
+
+请推荐最适合这个场景的镜头。"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7,
+                max_tokens=500
+            )
+
+            content = response.choices[0].message.content
+            return AIExtensionResult(
+                suggestions=[content],
+                explanation="",
+                keywords=[]
+            )
+
+        except Exception as e:
+            print(f"⚠️ AI 请求失败: {e}")
+            return None
+
     def suggest_transitions(self, current_scene: str, next_scene: str) -> Optional[List[str]]:
         """建议过渡效果"""
         if not self.is_available():

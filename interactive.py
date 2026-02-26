@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 增强版交互式问答 - 支持 AI 辅助、回退功能、输入校验
+包含：经典电影参考、场景模板、情绪板、镜头组合等功能
 """
 
 import os
 from typing import Optional, List, Dict, Any, Callable
 from questionnaire import Question, VideoRequirements, Scene
 from ai_extension import AIExtension, demo_ai_suggestions
+from film_data import (
+    get_film_references, get_scene_templates, get_mood_board,
+    get_camera_guide, get_shot_combinations, FILM_REFERENCE,
+    SCENE_TEMPLATES, MOOD_BOARD, CAMERA_GUIDE, SHOT_COMBINATIONS
+)
 
 
 class QuestionnaireState:
@@ -54,6 +60,44 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
     print("💡 输入 'b' 返回上一题")
     print("="*60)
 
+    # ========== 0. 致敬大师环节 ==========
+    print("\n🎬 第零部分：致敬大师（可选）")
+    print("-"*40)
+    state.current_section = "致敬大师"
+
+    # 询问用户是否有喜欢的电影/镜头风格
+    print("\n💡 你有没有特别喜欢的电影或镜头风格？")
+    print("   看过经典电影吗？有没有哪个镜头让你印象深刻？")
+    print("   输入你喜欢的电影名、镜头风格，或直接回车跳过")
+
+    # 显示经典电影参考
+    print("\n📚 经典电影镜头参考（按回车查看更多）:")
+    film_refs = get_film_references()
+    for i, film in enumerate(film_refs[:5], 1):
+        print(f"  {i}. {film['name']} - {film['description']}")
+        print(f"     导演: {film['director']} | 镜头: {film['camera_angle']}")
+
+    print("  6. 查看更多电影...")
+    print("  0. 跳过这一步")
+
+    choice = input("\n> ").strip()
+
+    selected_film = None
+    if choice == "6":
+        print("\n📚 更多经典电影参考:")
+        for i, film in enumerate(film_refs, 1):
+            print(f"  {i}. {film['name']} - {film['reference']}")
+            print(f"     导演: {film['director']} | 适合场景: {film['tips']}")
+        film_choice = input("\n选择你喜欢的电影编号: ").strip()
+        if film_choice.isdigit() and 1 <= int(film_choice) <= len(film_refs):
+            selected_film = film_refs[int(film_choice) - 1]
+            print(f"\n✅ 已选择: {selected_film['name']}")
+            print(f"   参考镜头: {selected_film['reference']}")
+            print(f"   使用建议: {selected_film['tips']}")
+    elif choice.isdigit() and 1 <= int(choice) <= 5:
+        selected_film = film_refs[int(choice) - 1]
+        print(f"\n✅ 已选择: {selected_film['name']}")
+
     # 第一部分：主题与故事
     print("\n📝 第一部分：主题与故事")
     print("-"*40)
@@ -72,6 +116,39 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
         ai,
         state=state
     )
+
+    # ========== 1.5 情绪板环节 ==========
+    print("\n🎭 第一点五部分：情绪氛围")
+    print("-"*40)
+    state.current_section = "情绪氛围"
+
+    print("\n💡 视频想要传达什么样的情感？")
+    print("   选择一种情绪氛围，让我们帮你匹配最佳风格")
+
+    mood_list = list(MOOD_BOARD.keys())
+    print("\n可选情绪:")
+    for i, mood in enumerate(mood_list, 1):
+        info = MOOD_BOARD[mood]
+        print(f"  {i}. {mood} - {info['description']}")
+
+    print(f"  {len(mood_list)+1}. 我有自己的想法（手动设置）")
+    print("  0. 跳过，使用默认设置")
+
+    mood_choice = input("\n> ").strip()
+
+    if mood_choice == "0":
+        pass  # 跳过
+    elif mood_choice.isdigit() and 1 <= int(mood_choice) <= len(mood_list):
+        selected_mood = MOOD_BOARD[mood_list[int(mood_choice) - 1]]
+        print(f"\n✅ 已选择情绪: {mood_list[int(mood_choice) - 1]}")
+        print(f"   建议风格: {selected_mood['style']}")
+        print(f"   建议光照: {selected_mood['lighting']}")
+        print(f"   建议色调: {selected_mood['color_tone']}")
+        # 自动填充建议值
+        requirements.overall_style = selected_mood['style']
+        requirements.overall_lighting = selected_mood['lighting']
+        requirements.color_tone = selected_mood['color_tone']
+        requirements.rhythm = selected_mood['rhythm']
 
     # 第二部分：整体风格（支持多选）
     print("\n🎨 第二部分：整体风格")
@@ -209,6 +286,33 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
     print("-"*40)
     state.current_section = "分镜头设置"
 
+    # 场景模板选择
+    print("\n💡 你可以选择一个场景模板快速上手，或自己手动设置")
+    print("   场景模板是专业摄影师常用的拍摄套路")
+
+    scene_templates = get_scene_templates()
+    template_list = list(scene_templates.keys())
+    print("\n📖 可选场景模板:")
+    for i, t in enumerate(template_list, 1):
+        info = scene_templates[t]
+        print(f"  {i}. {t} - {info['description']}")
+    print(f"  {len(template_list)+1}. 我自己设置（不用模板）")
+    print("  0. 跳过，稍后手动设置")
+
+    template_choice = input("\n> ").strip()
+
+    use_template = False
+    selected_template = None
+
+    if template_choice.isdigit():
+        choice_num = int(template_choice)
+        if 1 <= choice_num <= len(template_list):
+            selected_template = scene_templates[template_list[choice_num - 1]]
+            use_template = True
+            print(f"\n✅ 已选择模板: {template_list[choice_num - 1]}")
+            print(f"   包含 {len(selected_template['scenes'])} 个分镜头")
+            print("   你可以在后面的设置中修改")
+
     num_scenes = ask_numeric(
         "📹 分镜头数量",
         f"根据总时长 {requirements.total_duration} 秒，建议分为 {max(1, int(requirements.total_duration/5))} 个分镜头\n请输入分镜头数量 (1-9)",
@@ -267,24 +371,66 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
             state=scene_state
         )
 
-        # 3. 再问镜头机位（正面、侧面等）
+        # 3. 再问镜头机位（正面、侧面等），带通俗解释
+        print(f"\n  📷 镜头机位指南（选择困难？看看通俗解释）:")
+
+        # 显示通俗解释
+        camera_guide = get_camera_guide()
+        for angle, info in camera_guide.items():
+            print(f"     {angle}: {info['通俗解释']} (情感: {info['情感']})")
+
         scene.camera_angle = ask_with_options_and_ai(
             f"  镜头机位",
-            f"  使用什么角度的镜头拍摄这个场景？",
+            f"  使用什么角度的镜头拍摄这个场景？（见上方通俗指南）",
             [
-                ("正面", "正面面对主体"),
-                ("侧面", "90度侧拍"),
-                ("斜侧", "45度角拍摄"),
-                ("低角度", "仰视视角"),
-                ("高角度", "俯视视角"),
-                ("俯冲", "从高处冲向主体"),
-                ("升格", "从低处升起的视角"),
-                ("旋转", "环绕主体旋转")
+                ("正面", "像和人面对面说话 - 表达真诚、直接"),
+                ("侧面", "像在旁边看热闹 - 展示动作线条"),
+                ("斜侧", "45度角自拍角度 - 最常用的上镜角度"),
+                ("低角度", "蹲下来仰视 - 表现高大、权威"),
+                ("高角度", "站高处往下看 - 展示全貌"),
+                ("俯冲", "像老鹰俯冲 - 震撼开场"),
+                ("升格", "慢慢升起来 - 希望升起、史诗感"),
+                ("旋转", "绕着转圈 - 梦境、眩晕、浪漫")
             ],
             ai,
             requirements.theme,
             scene_state
         )
+
+        # 如果选择了经典电影，显示对应的镜头建议
+        if selected_film and i == 0:
+            print(f"\n  💡 致敬大师建议: {selected_film['name']} 中的 {selected_film['camera_angle']} 镜头")
+            print(f"     参考: {selected_film['reference']}")
+
+        # 镜头组合建议
+        print("\n  📽️ 镜头组合建议:")
+        shot_combos = get_shot_combinations()
+        combo_list = list(shot_combos.keys())
+        for j, combo_name in enumerate(combo_list[:4], 1):
+            print(f"     {j}. {combo_name}")
+        print(f"     0. 暂时不需要")
+
+        combo_choice = input(f"  选择镜头组合（直接回车跳过）: ").strip()
+        if combo_choice.isdigit() and 0 < int(combo_choice) <= len(combo_list):
+            selected_combo = shot_combos[combo_list[int(combo_choice) - 1]]
+            print(f"\n  ✅ 已应用镜头组合: {combo_list[int(combo_choice) - 1]}")
+            print(f"     {selected_combo['description']}")
+
+        # 智能AI推荐（如果可用）
+        if ai and ai.is_available():
+            print("\n  🤖 需要 AI 智能推荐镜头吗？(y/n)")
+            print("     AI 会根据你的场景描述，推荐最佳镜头")
+            ai_choice = input("  > ").strip().lower()
+            if ai_choice == "y":
+                result = ai.suggest_smart_lens(
+                    scene.description,
+                    requirements.theme,
+                    requirements.overall_style,
+                    ""
+                )
+                if result and result.suggestions:
+                    print("\n  📋 AI 镜头建议:")
+                    print(f"  {result.suggestions[0]}")
 
         # 4. 过渡效果（最后一个分镜头不需要）
         if i < num_scenes - 1:
