@@ -1,0 +1,32 @@
+# Seedance 2.0 API 配置
+# 请根据您的 API 信息修改以下配置
+
+api:
+  # API 基础地址
+  base_url: "https://api.seedance2-ai.io"
+  # API 密钥
+  api_key: "your_api_key_here"
+  # API 端点
+  endpoints:
+    generate: "/v1/video/generate"
+    query: "/v1/video/query"
+
+# AI 扩展配置
+ai:
+  # 是否启用 AI 扩展功能
+  enabled: true
+  # OpenAI API 密钥（用于 AI 扩展建议）
+  openai_api_key: "your_openai_api_key_here"
+  # AI 模型
+  model: "gpt-4"
+  # AI API 地址（如果使用其他兼容 API）
+  base_url: "https://api.openai.com/v1"
+
+# 视频生成默认参数
+defaults:
+  # 默认屏幕比例
+  aspect_ratio: "16:9"
+  # 默认帧率
+  fps: 24
+  # 默认视频质量
+  quality: "high"
