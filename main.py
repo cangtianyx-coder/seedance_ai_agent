@@ -17,6 +17,7 @@ from config import ConfigManager, init_config
 from questionnaire import VideoRequirements, print_requirements
 from ai_extension import AIExtension, demo_ai_suggestions
 from api_client import SeedanceClient, submit_video_request
+from exporter import export_to_seedance_json, export_simple_json, print_json_preview
 
 # 尝试导入增强版问卷，如果失败则使用基础版
 try:
@@ -198,42 +199,64 @@ def main():
             print("\n📝 模式: 预览模式（不提交）")
             requirements = run_interactive_mode(config, args.skip_ai, args.interactive)
 
-            # 导出到文件
+            # 导出 Seedance 2.0 格式 JSON
             if args.export:
-                import json
-                with open(args.export, "w", encoding="utf-8") as f:
-                    json.dump(requirements.to_dict(), f, ensure_ascii=False, indent=2)
-                print(f"\n✅ 已导出到: {args.export}")
+                export_to_seedance_json(requirements, args.export)
+            else:
+                # 默认导出
+                print("\n是否导出 Seedance 2.0 格式的 JSON？(y/n)")
+                print("> ", end="")
+                if input().strip().lower() == "y":
+                    default_path = f"seedance_{requirements.theme or 'video'}.json"
+                    export_to_seedance_json(requirements, default_path)
 
         else:
             print("\n🚀 模式: 提交到 Seedance API")
             requirements = run_interactive_mode(config, args.skip_ai, args.interactive)
 
-            # 导出到文件
+            # 检查 API 密钥
+            api_key = config.get("api", {}).get("api_key", "")
+            has_api_key = api_key and api_key != "your_api_key_here"
+
+            # 导出 JSON（无论是否有 API 密钥）
             if args.export:
-                import json
-                with open(args.export, "w", encoding="utf-8") as f:
-                    json.dump(requirements.to_dict(), f, ensure_ascii=False, indent=2)
-                print(f"\n✅ 已导出到: {args.export}")
+                export_to_seedance_json(requirements, args.export)
+            elif not has_api_key:
+                # 没有 API 密钥时提示导出
+                print("\n⚠️ 未配置 API 密钥")
+                print("是否导出 Seedance 2.0 格式的 JSON 以便稍后使用？(y/n)")
+                print("> ", end="")
+                if input().strip().lower() == "y":
+                    default_path = f"seedance_{requirements.theme or 'video'}.json"
+                    export_to_seedance_json(requirements, default_path)
+                print("\n你可以:")
+                print("  1. 配置 API 密钥后重新运行来提交生成")
+                print("  2. 使用导复制到其他平台出的 JSON ")
+                print("\n是否现在提交到 Seedance API？(y/n)")
+                print("> ", end="")
+                if input().strip().lower() != "y":
+                    print("\n已取消提交")
+                    return
 
             # 确认提交
-            print("\n" + "="*60)
-            print("确认提交到 Seedance API 生成视频？")
-            print("(输入 'y' 确认，其他取消)")
-            print("> ", end="")
+            if has_api_key:
+                print("\n" + "="*60)
+                print("确认提交到 Seedance API 生成视频？")
+                print("(输入 'y' 确认，其他取消)")
+                print("> ", end="")
 
-            if input().strip().lower() == "y":
-                # 创建 API 客户端
-                client = SeedanceClient(
-                    base_url=config.get("api", {}).get("base_url", "https://api.seedance2-ai.io"),
-                    api_key=config.get("api", {}).get("api_key", "")
-                )
+                if input().strip().lower() == "y":
+                    # 创建 API 客户端
+                    client = SeedanceClient(
+                        base_url=config.get("api", {}).get("base_url", "https://api.seedance2-ai.io"),
+                        api_key=api_key
+                    )
 
-                # 提交请求
-                submit_video_request(client, requirements)
-            else:
-                print("\n已取消提交")
-                print("你可以通过 --dry-run 模式重新预览")
+                    # 提交请求
+                    submit_video_request(client, requirements)
+                else:
+                    print("\n已取消提交")
+                    print("你可以通过 --dry-run 模式重新预览")
 
     except KeyboardInterrupt:
         print("\n\n⚠️ 已取消")

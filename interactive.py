@@ -168,6 +168,9 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
         default=max(1, int(requirements.total_duration/5))
     )
 
+    # 确保转换为整数
+    num_scenes = int(num_scenes)
+
     for i in range(num_scenes):
         print(f"\n{'='*40}")
         print(f"📹 分镜头 {i+1}/{num_scenes}")
@@ -234,25 +237,34 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
     print("-"*40)
 
     print("\n参考图片路径 (每行一个路径，直接回车结束):")
-    while True:
-        img = input("  > ").strip()
-        if not img:
-            break
-        requirements.images.append(img)
+    try:
+        while True:
+            img = input("  > ").strip()
+            if not img:
+                break
+            requirements.images.append(img)
+    except EOFError:
+        pass
 
-    print("\n参考视频路径 (每行一个路径，直接回车结束):")
-    while True:
-        vid = input("  > ").strip()
-        if not vid:
-            break
-        requirements.videos.append(vid)
+    try:
+        print("\n参考视频路径 (每行一个路径，直接回车结束):")
+        while True:
+            vid = input("  > ").strip()
+            if not vid:
+                break
+            requirements.videos.append(vid)
+    except EOFError:
+        pass
 
-    print("\n背景音乐路径 (每行一个路径，直接回车结束):")
-    while True:
-        aud = input("  > ").strip()
-        if not aud:
-            break
-        requirements.audios.append(aud)
+    try:
+        print("\n背景音乐路径 (每行一个路径，直接回车结束):")
+        while True:
+            aud = input("  > ").strip()
+            if not aud:
+                break
+            requirements.audios.append(aud)
+    except EOFError:
+        pass
 
     return requirements
 
