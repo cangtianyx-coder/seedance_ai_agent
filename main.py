@@ -354,7 +354,7 @@ def main():
             export_to_seedance_json(requirements, args.export)
         else:
             # 交互式预览 JSON
-            continue_flow, need_rerun = preview_and_confirm_export(requirements)
+            continue_flow, need_rerun, _ = preview_and_confirm_export(requirements)
 
             # 处理需要重新运行的情况
             if need_rerun is None:

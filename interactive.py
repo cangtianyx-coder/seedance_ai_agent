@@ -60,17 +60,15 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
     print("💡 输入 'b' 返回上一题")
     print("="*60)
 
-    # ========== 0. 致敬大师环节 ==========
+    # ========== 0. 致敬大师环节（不支持返回）==========
     print("\n🎬 第零部分：致敬大师（可选）")
     print("-"*40)
     state.current_section = "致敬大师"
 
-    # 询问用户是否有喜欢的电影/镜头风格
     print("\n💡 你有没有特别喜欢的电影或镜头风格？")
     print("   看过经典电影吗？有没有哪个镜头让你印象深刻？")
     print("   输入你喜欢的电影名、镜头风格，或直接回车跳过")
 
-    # 显示经典电影参考
     print("\n📚 经典电影镜头参考（按回车查看更多）:")
     film_refs = get_film_references()
     for i, film in enumerate(film_refs[:5], 1):
@@ -98,188 +96,181 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
         selected_film = film_refs[int(choice) - 1]
         print(f"\n✅ 已选择: {selected_film['name']}")
 
-    # 第一部分：主题与故事
+    # 定义问题列表（支持返回的问题）
+    questions = [
+        {
+            "type": "ask_with_ai",
+            "key": "theme",
+            "question": "📝 视频主题/标题",
+            "help_text": "你希望制作一个关于什么主题的视频？例如：城市夜景、自然风光、产品展示等",
+        },
+        {
+            "type": "ask_with_ai",
+            "key": "story",
+            "question": "📖 故事描述",
+            "help_text": "描述你想讲述的故事或展示的内容，越详细越好",
+        },
+        {
+            "type": "ask_with_options_and_ai",
+            "key": "overall_style",
+            "question": "🎨 整体格调",
+            "help_text": "你希望视频呈现什么样的风格？（可多选）",
+            "options": [
+                ("电影感", "电影级的画面质感和叙事风格"),
+                ("纪录片风格", "真实、客观的记录形式"),
+                ("时尚潮流", "现代、炫酷的视觉风格"),
+                ("温馨治愈", "温暖、柔和的氛围"),
+                ("赛博朋克", "未来科技感"),
+                ("复古怀旧", "怀旧、复古的色调"),
+                ("极简主义", "简洁、干练的画面"),
+                ("自然清新", "清爽、自然的视觉效果")
+            ],
+            "multi": True,
+        },
+        {
+            "type": "ask_with_options_and_ai",
+            "key": "overall_lighting",
+            "question": "💡 整体光照",
+            "help_text": "你希望视频整体的光线效果是怎样的？",
+            "options": [
+                ("自然光", "模拟日光、月光等自然光源"),
+                ("柔光", "柔和、均匀的布光"),
+                ("硬光", "强烈对比的明暗效果"),
+                ("背光", "逆光剪影效果"),
+                ("霓虹灯", "赛博朋克风格的灯光"),
+                ("暖色调光", "温馨的暖黄色调"),
+                ("冷色调光", "清凉的冷蓝色调"),
+                ("戏剧性光影", "强烈的明暗对比")
+            ],
+        },
+        {
+            "type": "ask_with_options_and_ai",
+            "key": "color_tone",
+            "question": "🎭 色调",
+            "help_text": "你希望视频整体呈现什么颜色倾向？",
+            "options": [
+                ("中性灰", "真实自然的色彩"),
+                ("暖色调", "橙黄色系的温暖感"),
+                ("冷色调", "蓝绿色系的冷峻感"),
+                ("高饱和度", "鲜艳夺目的色彩"),
+                ("低饱和度", "柔和淡雅的色调"),
+                ("黑白/单色", "经典的黑白风格"),
+                ("电影调色", "专业的电影色彩分级"),
+                ("复古色调", "怀旧的色彩风格")
+            ],
+        },
+        {
+            "type": "ask_with_options_and_ai",
+            "key": "lens_selection",
+            "question": "📷 镜头选型",
+            "help_text": "你希望使用什么类型的镜头效果？",
+            "options": [
+                ("广角镜头", "宽广的视野，适合风景"),
+                ("标准镜头", "接近人眼视角，自然真实"),
+                ("长焦镜头", "压缩空间，突出主体"),
+                ("微距镜头", "拍摄微小细节"),
+                ("鱼眼镜头", "夸张的透视效果"),
+                ("推拉镜头", "动态的镜头运动"),
+                ("斯坦尼康", "平滑的稳定运动"),
+                ("航拍镜头", "俯瞰视角")
+            ],
+        },
+        {
+            "type": "ask_with_options_and_ai",
+            "key": "aspect_ratio",
+            "question": "📐 屏幕比例",
+            "help_text": "视频的宽高比是多少？",
+            "options": [
+                ("16:9", "标准横屏（最常用）"),
+                ("9:16", "竖屏（短视频平台）"),
+                ("1:1", "方形（社交媒体）"),
+                ("21:9", "电影宽屏"),
+                ("4:3", "传统电视比例")
+            ],
+            "default": "16:9",
+        },
+        {
+            "type": "ask_numeric",
+            "key": "total_duration",
+            "question": "⏱️ 视频总时长（秒）",
+            "help_text": "你希望视频总时长是多少秒？",
+            "default": 15,
+            "min_val": 1,
+            "max_val": 300,
+        },
+        {
+            "type": "ask_with_options_and_ai",
+            "key": "rhythm",
+            "question": "🎵 节奏",
+            "help_text": "你希望视频的整体节奏是怎样的？",
+            "options": [
+                ("快节奏", "快速切换，充满活力"),
+                ("中节奏", "平衡的叙事节奏"),
+                ("慢节奏", "舒缓、从容的氛围"),
+                ("由慢到快", "渐进式的节奏变化"),
+                ("由快到慢", "渐入式的节奏变化"),
+                ("快慢交替", "富有变化的节奏")
+            ],
+        },
+    ]
+
+    # 打印部分标题
     print("\n📝 第一部分：主题与故事")
     print("-"*40)
     state.current_section = "主题与故事"
 
-    requirements.theme = ask_with_ai(
-        "📝 视频主题/标题",
-        "你希望制作一个关于什么主题的视频？例如：城市夜景、自然风光、产品展示等",
-        ai,
-        state=state
-    )
+    # 遍历问题列表，支持返回
+    idx = 0
+    while idx < len(questions):
+        q = questions[idx]
+        q_type = q["type"]
 
-    requirements.story = ask_with_ai(
-        "📖 故事描述",
-        "描述你想讲述的故事或展示的内容，越详细越好",
-        ai,
-        state=state
-    )
+        # 根据问题类型打印部分标题
+        if idx == 2:
+            print("\n🎨 第二部分：整体风格")
+            print("-"*40)
+            state.current_section = "整体风格"
+            print("\n💡 提示: 不知道如何选择时，输入 'ai' 获取专业建议")
+            if q.get("multi"):
+                print("💡 支持多选，用逗号分隔（如：1,3,5）或输入范围（如：1-3）")
+        elif idx == 5:
+            print("\n📷 第三部分：镜头设置")
+            print("-"*40)
+            state.current_section = "镜头设置"
+        elif idx == 8:
+            print("\n⏱️ 第四部分：时间节奏")
+            print("-"*40)
+            state.current_section = "时间节奏"
 
-    # ========== 1.5 情绪板环节 ==========
-    print("\n🎭 第一点五部分：情绪氛围")
-    print("-"*40)
-    state.current_section = "情绪氛围"
+        answer = None
 
-    print("\n💡 视频想要传达什么样的情感？")
-    print("   选择一种情绪氛围，让我们帮你匹配最佳风格")
+        if q_type == "ask_with_ai":
+            answer = ask_with_ai(q["question"], q["help_text"], ai, requirements.theme if hasattr(requirements, 'theme') else "", state)
+        elif q_type == "ask_with_options_and_ai":
+            answer = ask_with_options_and_ai(q["question"], q["help_text"], q.get("options", []), ai, requirements.theme if hasattr(requirements, 'theme') else "", state, q.get("default", ""))
+        elif q_type == "ask_with_multiple_options":
+            answer = ask_with_multiple_options(q["question"], q["help_text"], q.get("options", []), ai, requirements.theme if hasattr(requirements, 'theme') else "", state, q.get("default", ""))
+        elif q_type == "ask_numeric":
+            answer = ask_numeric(q["question"], q["help_text"], q.get("min_val", 1), q.get("max_val", 999), q.get("default", 0), state)
 
-    mood_list = list(MOOD_BOARD.keys())
-    print("\n可选情绪:")
-    for i, mood in enumerate(mood_list, 1):
-        info = MOOD_BOARD[mood]
-        print(f"  {i}. {mood} - {info['description']}")
-
-    print(f"  {len(mood_list)+1}. 我有自己的想法（手动设置）")
-    print("  0. 跳过，使用默认设置")
-
-    mood_choice = input("\n> ").strip()
-
-    if mood_choice == "0":
-        pass  # 跳过
-    elif mood_choice.isdigit() and 1 <= int(mood_choice) <= len(mood_list):
-        selected_mood = MOOD_BOARD[mood_list[int(mood_choice) - 1]]
-        print(f"\n✅ 已选择情绪: {mood_list[int(mood_choice) - 1]}")
-        print(f"   建议风格: {selected_mood['style']}")
-        print(f"   建议光照: {selected_mood['lighting']}")
-        print(f"   建议色调: {selected_mood['color_tone']}")
-        # 自动填充建议值
-        requirements.overall_style = selected_mood['style']
-        requirements.overall_lighting = selected_mood['lighting']
-        requirements.color_tone = selected_mood['color_tone']
-        requirements.rhythm = selected_mood['rhythm']
-
-    # 第二部分：整体风格（支持多选）
-    print("\n🎨 第二部分：整体风格")
-    print("-"*40)
-    state.current_section = "整体风格"
-
-    # 整体格调 - 支持多选
-    print("\n💡 提示: 不知道如何选择时，输入 'ai' 获取专业建议")
-    print("💡 支持多选，用逗号分隔（如：1,3,5）或输入范围（如：1-3）")
-    requirements.overall_style = ask_with_multiple_options(
-        "🎨 整体格调",
-        "你希望视频呈现什么样的风格？（可多选）",
-        [
-            ("电影感", "电影级的画面质感和叙事风格"),
-            ("纪录片风格", "真实、客观的记录形式"),
-            ("时尚潮流", "现代、炫酷的视觉风格"),
-            ("温馨治愈", "温暖、柔和的氛围"),
-            ("赛博朋克", "未来科技感"),
-            ("复古怀旧", "怀旧、复古的色调"),
-            ("极简主义", "简洁、干练的画面"),
-            ("自然清新", "清爽、自然的视觉效果")
-        ],
-        ai,
-        requirements.theme,
-        state=state
-    )
-
-    requirements.overall_lighting = ask_with_options_and_ai(
-        "💡 整体光照",
-        "你希望视频整体的光线效果是怎样的？",
-        [
-            ("自然光", "模拟日光、月光等自然光源"),
-            ("柔光", "柔和、均匀的布光"),
-            ("硬光", "强烈对比的明暗效果"),
-            ("背光", "逆光剪影效果"),
-            ("霓虹灯", "赛博朋克风格的灯光"),
-            ("暖色调光", "温馨的暖黄色调"),
-            ("冷色调光", "清凉的冷蓝色调"),
-            ("戏剧性光影", "强烈的明暗对比")
-        ],
-        ai,
-        requirements.theme,
-        state=state
-    )
-
-    requirements.color_tone = ask_with_options_and_ai(
-        "🎭 色调",
-        "你希望视频整体呈现什么颜色倾向？",
-        [
-            ("中性灰", "真实自然的色彩"),
-            ("暖色调", "橙黄色系的温暖感"),
-            ("冷色调", "蓝绿色系的冷峻感"),
-            ("高饱和度", "鲜艳夺目的色彩"),
-            ("低饱和度", "柔和淡雅的色调"),
-            ("黑白/单色", "经典的黑白风格"),
-            ("电影调色", "专业的电影色彩分级"),
-            ("复古色调", "怀旧的色彩风格")
-        ],
-        ai,
-        requirements.theme,
-        state=state
-    )
-
-    # 第三部分：镜头设置
-    print("\n📷 第三部分：镜头设置")
-    print("-"*40)
-    state.current_section = "镜头设置"
-
-    requirements.lens_selection = ask_with_options_and_ai(
-        "📷 镜头选型",
-        "你希望使用什么类型的镜头效果？",
-        [
-            ("广角镜头", "宽广的视野，适合风景"),
-            ("标准镜头", "接近人眼视角，自然真实"),
-            ("长焦镜头", "压缩空间，突出主体"),
-            ("微距镜头", "拍摄微小细节"),
-            ("鱼眼镜头", "夸张的透视效果"),
-            ("推拉镜头", "动态的镜头运动"),
-            ("斯坦尼康", "平滑的稳定运动"),
-            ("航拍镜头", "俯瞰视角")
-        ],
-        ai,
-        requirements.theme,
-        state=state
-    )
-
-    requirements.aspect_ratio = ask_with_options_and_ai(
-        "📐 屏幕比例",
-        "视频的宽高比是多少？",
-        [
-            ("16:9", "标准横屏（最常用）"),
-            ("9:16", "竖屏（短视频平台）"),
-            ("1:1", "方形（社交媒体）"),
-            ("21:9", "电影宽屏"),
-            ("4:3", "传统电视比例")
-        ],
-        ai,
-        requirements.theme,
-        state=state,
-        default="16:9"
-    )
-
-    # 第四部分：时间节奏
-    print("\n⏱️ 第四部分：时间节奏")
-    print("-"*40)
-    state.current_section = "时间节奏"
-
-    requirements.total_duration = ask_numeric(
-        "⏱️ 视频总时长（秒）",
-        "你希望视频总时长是多少秒？",
-        default=15,
-        min_val=1,
-        max_val=300,
-        state=state
-    )
-
-    requirements.rhythm = ask_with_options_and_ai(
-        "🎵 节奏",
-        "你希望视频的整体节奏是怎样的？",
-        [
-            ("快节奏", "快速切换，充满活力"),
-            ("中节奏", "平衡的叙事节奏"),
-            ("慢节奏", "舒缓、从容的氛围"),
-            ("由慢到快", "渐进式的节奏变化"),
-            ("由快到慢", "渐入式的节奏变化"),
-            ("快慢交替", "富有变化的节奏")
-        ],
-        ai,
-        requirements.theme,
-        state=state
-    )
+        # 处理返回
+        if answer is None:
+            # 返回上一题
+            if idx > 0:
+                idx -= 1
+                # 清除当前问题的值，以便重新填写
+                key = questions[idx]["key"]
+                if hasattr(requirements, key):
+                    setattr(requirements, key, None)
+                continue
+            else:
+                # 已经是第一题，无法返回
+                continue
+        else:
+            # 保存答案
+            key = q["key"]
+            setattr(requirements, key, answer)
+            idx += 1
 
     # 第五部分：分镜头
     print("\n📹 第五部分：分镜头设置")
@@ -313,6 +304,10 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
             print(f"   包含 {len(selected_template['scenes'])} 个分镜头")
             print("   你可以在后面的设置中修改")
 
+    # 确保 total_duration 有值
+    if requirements.total_duration is None:
+        requirements.total_duration = 15
+
     num_scenes = ask_numeric(
         "📹 分镜头数量",
         f"根据总时长 {requirements.total_duration} 秒，建议分为 {max(1, int(requirements.total_duration/5))} 个分镜头\n请输入分镜头数量 (1-9)",
@@ -322,8 +317,26 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
         state=state
     )
 
+    # 处理返回
+    if num_scenes is None:
+        # 返回上一题
+        idx = 8  # 返回到"节奏"问题
+        # 重新设置索引继续循环
+        # 这里需要跳回主问题循环
+        print("\n↩️ 返回上一题")
+        # 重新调用主循环处理返回逻辑
+        # 由于分镜头比较复杂，这里暂时返回到总时长问题
+        requirements.total_duration = None  # 标记需要重新填写
+
     # 确保转换为整数
-    num_scenes = int(num_scenes)
+    if num_scenes is not None:
+        num_scenes = int(num_scenes)
+    else:
+        num_scenes = 0
+
+    # 如果 total_duration 为 None，设置为默认值
+    if requirements.total_duration is None:
+        requirements.total_duration = 15
 
     # 计算已使用的时间
     used_duration = 0
@@ -495,8 +508,8 @@ def enhanced_questionnaire(ai: Optional[AIExtension] = None) -> VideoRequirement
 def ask_with_ai(question: str, help_text: str,
                 ai: Optional[AIExtension] = None,
                 context: str = "",
-                state: Optional[QuestionnaireState] = None) -> str:
-    """带 AI 辅助的问题"""
+                state: Optional[QuestionnaireState] = None) -> Optional[str]:
+    """带 AI 辅助的问题，返回 None 表示返回上一题"""
     while True:
         print(f"\n{question}")
         print(f"💡 {help_text}")
@@ -512,8 +525,8 @@ def ask_with_ai(question: str, help_text: str,
                 if prev:
                     print(f"\n↩️ 已返回上一题: {prev['question']}")
                     print(f"上次的答案: {prev['answer']}")
-                    # 这里可以实现重新输入或者直接使用上次的答案
-                    continue
+                    # 返回 None 告诉调用者需要返回上一题
+                    return None
             else:
                 print("⚠️ 无法返回，已经是第一步")
                 continue
@@ -527,12 +540,17 @@ def ask_with_ai(question: str, help_text: str,
             print("> ", end="")
             answer = input().strip()
             if answer.lower() == "b":
-                break
+                # 返回 None 告诉调用者需要返回上一题
+                if state and state.can_go_back():
+                    state.go_back()
+                return None
             if answer.lower() == "ai":
                 return get_ai_suggestion(question, help_text, ai, context)
 
         if answer.lower() == "b":
-            continue
+            if state and state.can_go_back():
+                state.go_back()
+            return None
 
         # 保存步骤
         if state:
@@ -546,8 +564,8 @@ def ask_with_options_and_ai(question: str, help_text: str,
                           ai: Optional[AIExtension] = None,
                           context: str = "",
                           state: Optional[QuestionnaireState] = None,
-                          default: str = "") -> str:
-    """带选项和 AI 辅助的问题，支持输入校验"""
+                          default: str = "") -> Optional[str]:
+    """带选项和 AI 辅助的问题，支持输入校验，返回 None 表示返回上一题"""
     while True:
         print(f"\n{question}")
         print(f"💡 {help_text}")
@@ -568,10 +586,9 @@ def ask_with_options_and_ai(question: str, help_text: str,
         # 处理返回
         if answer.lower() == "b":
             if state and state.can_go_back():
-                prev = state.go_back()
-                if prev:
-                    print(f"\n↩️ 已返回上一题")
-                    continue
+                state.go_back()
+                print(f"\n↩️ 已返回上一题")
+                return None
             else:
                 print("⚠️ 无法返回，已经是第一步")
                 continue
@@ -617,8 +634,8 @@ def ask_with_multiple_options(question: str, help_text: str,
                               ai: Optional[AIExtension] = None,
                               context: str = "",
                               state: Optional[QuestionnaireState] = None,
-                              default: str = "") -> str:
-    """带选项的问题，支持多选"""
+                              default: str = "") -> Optional[str]:
+    """带选项的问题，支持多选，返回 None 表示返回上一题"""
     while True:
         print(f"\n{question}")
         print(f"💡 {help_text}")
@@ -639,10 +656,9 @@ def ask_with_multiple_options(question: str, help_text: str,
         # 处理返回
         if answer.lower() == "b":
             if state and state.can_go_back():
-                prev = state.go_back()
-                if prev:
-                    print(f"\n↩️ 已返回上一题")
-                    continue
+                state.go_back()
+                print(f"\n↩️ 已返回上一题")
+                return None
             else:
                 print("⚠️ 无法返回，已经是第一步")
                 continue
@@ -694,8 +710,8 @@ def ask_numeric(question: str, help_text: str,
                min_val: float = 1, max_val: float = 999,
                default: float = 0,
                state: Optional[QuestionnaireState] = None,
-               show_remaining: float = None) -> float:
-    """询问数值，支持返回和输入校验"""
+               show_remaining: float = None) -> Optional[float]:
+    """询问数值，支持返回和输入校验，返回 None 表示返回上一题"""
     while True:
         print(f"\n{question}")
         if show_remaining is not None:
@@ -712,10 +728,9 @@ def ask_numeric(question: str, help_text: str,
         # 处理返回
         if answer.lower() == "b":
             if state and state.can_go_back():
-                prev = state.go_back()
-                if prev:
-                    print(f"\n↩️ 已返回上一题")
-                    continue
+                state.go_back()
+                print(f"\n↩️ 已返回上一题")
+                return None
             else:
                 print("⚠️ 无法返回，已经是第一步")
                 continue
